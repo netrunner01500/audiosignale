@@ -1,0 +1,879 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{amsmath, amssymb}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{graphicx} % for inserting images
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{mathrsfs}
+
+% Margins
+\geometry{
+  top=2.5cm,
+  bottom=2.5cm,
+  left=2.5cm,
+  right=2.5cm
+}
+
+\definecolor{codegray}{RGB}{248, 248, 248}
+\definecolor{codegreen}{RGB}{0, 128, 0}
+\definecolor{codepink}{RGB}{175, 0, 219}
+\definecolor{codered}{RGB}{163, 21, 21}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{codegray},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codepink},
+    stringstyle=\color{codered},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=none,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\DeclareMathOperator{\sinc}{sinc}
+
+\newcommand{\twographics}[2]{\centering{
+    \includegraphics[width=0.495\textwidth]{#1}
+    \includegraphics[width=0.495\textwidth]{#2}
+}}
+
+\title{Praktikum Audiosignalverarbeitung: Report}
+\author{
+  German Buhrymenka: 7730792 \\
+  Kalle Wachsmuth: 7722471
+}
+\date{16 Feb 2026}
+
+\begin{document}
+
+\maketitle
+
+{\centering GitHub Repository: https://github.com/netrunner01500/audiosignale\par}
+
+\tableofcontents
+\newpage
+
+\section{Frequencies}
+A frequency is the number of times that something occurs per unit of time. For periodic functions, this would be the number of whole repetitions per unit of time. We measure it with the unit Hertz: The number of Hertz is the number of periods per second.
+
+As an example, consider the function $x(t) = \sin(2\pi \cdot 3\,\mathrm{Hz} \cdot t)$ in figure \ref{fig:ex3_simple_sine}. It has a frequency of 3~Hertz. In this case, the fundamental period $T$, which is the inverse of the frequency, is the period of time between two local maxima. Since we know the frequency, we can easily calculate it as well: $T = 1/f = 1/(3\,\mathrm{Hz}) = 1/3\,\mathrm{s}$.
+
+Sounds are fluctuations of the air pressure and as such can be represented by wave functions. Frequencies are an essential property of those acoustic waves as they define the pitch of a signal. However, the example in figure \ref{fig:ex3_simple_sine} does not represent an audible sound. It would have a very deep pitch not perceptible by human ears. That is because the range of audible frequencies is approximately $20\,\mathrm{Hz}$ to $20\,000\,\mathrm{Hz}$---the higher the frequency is, the higher the pitch is as well.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_simple_sine.png}
+    \caption{Sine wave with frequency $f = 3\,\mathrm{Hz}$ and amplitude 2}
+    \label{fig:ex3_simple_sine}
+\end{figure}
+
+\section{Sampling}
+\label{sampling}
+To store a signal in a digital format, we need to sample it, i.e., save the values at specific points in time. We do this at a consistent rate $f_s$, the sampling rate. Each sample has a temporal distance of $f_s^{-1}$ to the next.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_sampling.png}
+    \caption{Sum of wave functions sampled at rate $f_s = 10\,\mathrm{Hz}$}
+    \label{fig:ex3_sampling}
+\end{figure}
+
+As an example, take a look at the graph of the periodic signal $s_a(t) = 3 \cos(2 \pi t) + \sin(4 \pi t) + \cos(6 \pi t)$ and how it is sampled (figure \ref{fig:ex3_sampling}). We can obtain the array $s$ of sampled values as follows:
+
+\[
+s[n] := s_a\left(\frac{n}{f_s}\right) \quad \text{for } n \in \mathbb{N}_0,\, n \leq 30
+\]
+
+The components of $s_a$ have frequencies $1\,\mathrm{Hz}$, $2\,\mathrm{Hz}$ and $3\,\mathrm{Hz}$, respectively. These are determined by the factor inside the sine/cosine function. The compound signal has a fundamental frequency of $1\,\mathrm{Hz}$, the greatest common divisor of the three.
+
+For real-world analog signals, we also need to consider that we only have a limited number of bits for storing each sample, but the range of values of the analog signal is continuous. This process of forcing the values into a computer word is called quantization and it introduces rounding error. The amount of detail that can be stored in each sample increases with a larger bit width.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_samples_only.png}
+    \caption{Samples $s[n]$ of the signal with $f_s = 10\,\mathrm{Hz}$}
+    \label{fig:ex3_samples_only}
+\end{figure}
+
+Since we want to be able to play back the digital signal using analog speakers, the challenge will be to reconstruct the input signal given just the sequence of sampled values. But is that even possible without introducing mistakes? We can use our example signal $s$ to illustrate the information that we have got left (see figure \ref{fig:ex3_samples_only}). Unfortunately, it looks like not all details are captured in our digital signal. There is no way to tell that the global maxima are actually not on the integer positions $t = 0, 1, 2$, but a bit to the right of them.
+
+Generally speaking, there will always be several different analog signals that produce the same sequence when they are sampled. The input signal could fluctuate arbitrarily fast and we would not be able to capture it with our set sampling rate. So when reconstructing the signal, there will always be ambiguity.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_sampling2.png}
+    \caption{Samples $s[n]$ of the signal with different values $f_s$}
+    \label{fig:ex3_sampling2}
+\end{figure}
+
+If we decrease the sampling rate to $f_s = 5\,\mathrm{Hz}$, reconstruction is certainly not possible anymore (see figure \ref{fig:ex3_sampling2}). If we try to increase the sampling rate, things start to look more promising. It looks like larger sampling rate will lead to smaller reconstruction errors.
+
+\subsection{Reconstruction function}
+\label{subsec:Reconstruction function}
+
+Now let us take a look at reconstruction. To accomplish it, we use the equation \[
+s_\text{rec}(t) = \sum_{n=-\infty}^\infty s(n) \cdot \sinc\left(f_s \cdot \left(t - \frac{n}{f_s}\right)\right).
+\]
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    import numpy as np
+
+    def reconstruct(sample_vals: np.ndarray, fs: int, t_vals: np.ndarray) -> np.ndarray:
+        """
+        Reconstructs the underlying continuous function of a sampled analog signal and
+        then returns an array of samples of that function. This is useful to increase the
+        sampling frequency.
+    
+        :param sample_vals: array s of samples
+        :param fs: sampling rate f_s
+        :param t_vals: t positions at which the output values should be calculated
+        :returns: fine-grained array of output samples of the same length as t_vals
+        """
+        # Construct n_vals, the array of t-positions of the samples
+        n_vals = np.linspace(0, t_vals[-1], sample_vals.size)
+    
+        s_rec = np.zeros(t_vals.size)
+        for i, t in enumerate(t_vals):
+            # Dot product is the same as a sum of products
+            s_rec[i] = np.dot(sample_vals, np.sinc((t - n_vals) * fs))
+    
+        return s_rec
+    \end{lstlisting}
+    \caption{Reconstruction function in Python}
+    \label{fig:ex3_fn_reconstruct}
+\end{figure}
+
+We implemented this in Python using NumPy (see figure \ref{fig:ex3_fn_reconstruct}). Note that the output of that function is \emph{also} a sampled signal, but with a much more granular sampling rate. The reason is that we generally calculate samples of functions in any case if we want to plot them.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_reconstruction.png}
+    \caption{Original signal (blue), sampled signal and reconstruction of the continuous signal (orange)}
+    \label{fig:ex3_reconstruction}
+\end{figure}
+
+The result of applying this operation to our example signal sampled at $10\,\mathrm{Hz}$ can be seen in figure \ref{fig:ex3_reconstruction}. Overall, the reconstruction is very accurate. Towards the left and right edges of the graph, it is noticeably worse, though. The cause of this is that the reconstruction algorithm does not account for the lack of sampled values past the range that we provided. It implicitly assumes that every value outside of the range is zero. Therefore, we should disregard the leftmost and rightmost parts of the graph.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex3_reconstruction2.png}
+    \caption{Original signal (blue), sampled signal and reconstruction of the continuous signal (orange)}
+    \label{fig:ex3_reconstruction2}
+\end{figure}
+
+In order to not waste space on our storage media, we don't want the sampling rate to be unnecessarily large. But what is the minimum level of detail needed to be able to reconstruct a signal? We can analyse this by testing different sampling rates of our functions (see figure \ref{fig:ex3_reconstruction2}). The result is that a value of $f_s = 6\,\mathrm{Hz}$ is sufficient to sample this function in a reconstructible manner. Again, we should be disregarding the edges of the graphs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{ex3_reconstruction3.png}
+    \caption{Original signal (blue), sampled signal and reconstruction of the continuous signal (orange)}
+    \label{fig:ex3_reconstruction3}
+\end{figure}
+
+Let us go back to a simple sine function and find the threshold for high enough values $f_s$, such that we never face issues with reconstruction. Figure \ref{fig:ex3_reconstruction3} shows three sine waves with frequencies $2\,\mathrm{Hz}$, $4\,\mathrm{Hz}$ and $6\,\mathrm{Hz}$ sampled at different rates and reconstructed into a continuous signal.
+
+We can empirically conclude that the sampling rate has to be more than twice as large as the wave's frequency to achieve a sampled signal that can be reconstructed. This fact is known as the Nyquist theorem\footnote{https://www.mathworks.com/discovery/nyquist-theorem.html} and it also holds for signals that are the sum of several different sine waves. If the sampling rate is exactly twice as large as the largest component frequency, then reconstruction might still succeed, such as we saw above in figure \ref{fig:ex3_reconstruction2}, where we had a sampling rate of $6\,\mathrm{Hz}$ and a largest frequency of $3\,\mathrm{Hz}$.
+
+The Nyquist theorem is a result that matches our expectations that there will always be ambiguity when reconstructing a signal. However, the theorem guarantees that no ambiguity will come into play as long as all component frequencies are small enough and a specific reconstruction technique is used, which we did not know about when we wrote down our expectation.
+
+\section{Aliasing}
+\label{aliasing}
+We have established that when a small sampling rate is chosen, one that violates the Nyquist theorem, a signal's reconstruction will not resemble the original signal.
+
+If we were to make that mistake while sampling a simple sine signal and tried to reconstruct it, the result would be that the signal would have some entirely new frequencies that were not in the original. This phenomenon is called aliasing and is also observable in more complex signals.
+\subsection{Aliasing in pictures}
+\label{subsec:Aliasing in pictures}
+
+\begin{figure}[H]
+    \twographics{ex4_original_p1.jpg}{ex4_p1_downsampled_factor_8.jpg}
+    \caption{Original picture (left) and downsampled picture (right)}
+    \label{fig:ex4_original_p1&ex4_p1_downsampled_factor_8}
+\end{figure}
+
+By storing data from the original image (see figure \ref{fig:ex4_original_p1&ex4_p1_downsampled_factor_8}) in a NumPy array and slicing said array, we can downsample the image. If we use a downsampling factor of 8, for example, it means that every eighth sample along the $x$- and $y$-axes will be kept, and the rest discarded. This way of downsampling by a factor causes massive aliasing effects (see figure \ref{fig:ex4_original_p1&ex4_p1_downsampled_factor_8}).
+
+When trying out different downsampling factors for our image, it becomes evident that a factor of four or greater already causes visible aliasing in the form of a wavy pattern on the brick wall. Using proper downsizing techniques, such as the function \texttt{resize} from the \texttt{PIL} package, will result in a smaller image without aliasing effects. However, as we are also shrinking the image's resolution, it will become less sharp.
+
+The aliasing effect that we saw stems from the fact that we discard most of the pixels, whereas the resize function combines pixels through interpolation, thus preventing aliasing effects.
+
+\subsection{Aliasing in audio signals}
+\label{subsec:Aliasing in audio signals}
+Aliasing can occur in audio signals just as well. To test how aliasing affects audio signals, we first use the package \texttt{soundfile} to read a \texttt{.wav} file into our Python code. The \texttt{.wav} file contains an audio signal which has a $48\,\mathrm{kHz}$ sampling rate and 16-bit integer samples. Now we downsample the audio signal in such a way that it violates the Nyquist theorem.
+
+We use the downsampling factors two, three and six to reach the sampling rates $24\,\mathrm{kHz}$, $16\,\mathrm{kHz}$ and $8\,\mathrm{kHz}$, respectively. Listening to the downsampled audio signals, aliasing is most prominent with the \textit{s} and \textit{sh} phonemes. As the downsampling factor increases, the signal is increasingly accompanied by noise.
+
+We repeat our experiment using a low-pass filter in order to not violate the condition of the Nyquist theorem. We apply a Butterworth filter of order 10 to our audio signal before downsampling it. When comparing the downsampled signal without a low-pass filter and the downsampled signal with a low-pass filter, the differences become evident: The signal that was given a low-pass filter before downsampling sounds clearer and has less noise. This signal has also had all high frequencies cut off.
+
+\section{Quantization}
+\label{quantization}
+We used a sample format of 16-bit for the audio signal in section \ref{aliasing}. Thus, every sample is represented by a 16-bit integer, meaning every sample has a bit width of 16 bits. A 16-bit integer can store numbers in the range $-32\,768$ to $32\,767$, for a total of $2^{16}=65\,536$ values.
+
+\subsection{Reducing the bitdepth}
+\label{subsec:Reducing the bitdepth}
+Our goal now is to simulate the effect of a small bit width during quantization. The effect would be that the quantization steps become larger. A signal's bit depth and the number of quantization steps are related: The number of quantization steps is equal to $2^n$, where $n$ is the bitdepth.
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def reduce_bitdepth(signal: np.ndarray, target_bitdepth: int) -> np.ndarray:
+        """
+        Reduces the bitdepth of a given signal by bitshifting and filling unnecessary
+        bits with zeros. Returns signal of the same data type as the input signal and a
+        reduced bitdepth.
+    
+        :param signal: array with integers as elements
+        :param target_bitdepth: number of bits that are used for every element of the
+            array
+        :returns: array with same data type as the input, but with a reduced bitdepth
+        """
+        return np.left_shift(np.right_shift(signal, 16 - target_bitdepth), 16 - target_bitdepth)
+    \end{lstlisting}
+    \caption{Function that reduces bitdepth of a given signal}
+    \label{fig:ex4_fn_reduce_bitdepth}
+\end{figure}
+
+To reduce the bitdepth of our signal, we shift bits to reach our target bitdepth an fill unnecessary bits with zeros (see figure \ref{fig:ex4_fn_reduce_bitdepth}). If we were to now use the \texttt{reduce\_bitdepth} function on our audio signal to reduce the bitdepth from 16 bits to 15, 14 or 13 bits, it would be possible to see major differences.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{ex4_bitdepth_comparison.png}
+    \caption{Comparison between signals}
+    \label{fig:ex4_bitdepth_comparison}
+\end{figure}
+
+We used only $n = 500$ samples of the signal, but they clearly show how a bitdepth reduction affects a signal. As the bitdepth reduction become greater, so does the difference from the original signal to the signal with a reduced bitdepth. Starting at a bitdepth of 14 bits, it is easy to see the effects of quantization in the graph (see figure \ref{fig:ex4_bitdepth_comparison}). The signal with a reduced bitdepth of 14 bits shows staircase artifacts. This becomes even more apparent when the bitdepth is reduced to 13 bits.
+
+The difference between the original signal and the signal with a reduced bitdepth is also noticeable when listening to the audio signals. Quantization noise can be heard at a bitdepth of 13 bits. The more the bitdepth is reduced, the more distorted the audio file sounds.
+
+\subsection{Signal-to-noise ratio}
+\label{subsec:Signal-to-noise ratio}
+Now we want to calculate the signal-to-noise ratio (SNR) of our quantized signal. The SNR puts the energy of the signal in relation to the quantization error. It is usually given in decibels. To calculate the energy $P_\text{x}$ of the signal $x(n)$, we use the equation
+
+\[
+P_\text{x} = \sum_{n=0}^N x^2(n).
+\]
+
+Because we are using integers, our calculations can lead to over- and underflows. That means that our calculated values could potentially exceed the representable range of the data type if the function was not programmed correctly. Overflows happen when the result is larger than the highest positive value of the range that an integer word can represent, while an underflow happens when the result is smaller than the lowest negative representable value. We can bypass this problem by using Python's built-in integer type, which is dynamically extended to fit the integers we are using.
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    import math
+
+    def get_power(signal: np.ndarray) -> float:
+        """
+        Calculates the power of a given signal according to the formula. Returns the
+        power of the signal in decibels.
+    
+        :param signal: an array of signal samples
+        :returns: power in decibels
+        """
+	    power_int = sum((int(x) ** 2 for x in signal))
+	    return 10 * math.log(power_int / (MAX_AMPL * MAX_AMPL), 10)
+    \end{lstlisting}
+    \caption{Function that calculates power of a signal in Python}
+    \label{fig:ex4_get_power_function}
+\end{figure}
+
+We can now calculate the power of our quantized signal in decibels (see figure \ref{fig:ex4_get_power_function}). To further calculate the SNR of a signal, we need to calculate the power of the reduced-width signal and the signal's quantization noise and then take the difference between both decibel values.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|r|r|c|}
+        \hline
+        \textbf{} & \textbf{reduced signal} & \textbf{signal noise} & \textbf{SNR} \\
+        \hline
+        \textbf{original signal} & 23.79 dB & -19.50 dB & 43.29 dB \\
+        \hline
+        \textbf{quiet signal} & -2.25 dB & -19.68 dB & 17.43 dB \\
+        \hline
+    \end{tabular}
+    \caption{SNR of original signal and quiet signal, when reduced to 13 bits}
+    \label{tab:ex4_signal_noise_SNR}
+\end{table}
+
+We have now successfully calculated the SNR of our quantized original signal (see table \ref{tab:ex4_signal_noise_SNR}). We repeat our experiment with a quiet audio signal by again reducing its bitdepth, calculating the power of the reduced signal and of the signal's noise. Then we determine the SNR of the quantized quiet signal and it becomes evident that the quantized original signal's SNR is higher than the quantized quiet signal's SNR. Therefore, the quantized original signal has less quantization noise than the quantized quiet signal. To mitigate quantization errors and thus reduce signal noise, it is best to use the full value range of the integer type when recording an audio file. That will have the result that the SNR of the recorded file is higher.
+
+\section{Fourier series}
+In section \ref{sampling}, we saw an example of a signal that is the sum of several different sine waves and we saw that it follows the Nyquist theorem. However, it is not yet obvious how we can think of any given input signal as a compound wave function. Given such a signal, how can we obtain the individual frequencies if we think of our signal as the sum of sine waves? This question is answered by the Fourier series, whose objective it is to dissect a signal $x(t)$ into an infinite sum of sine and cosine waves of different frequencies. Since waves are periodic and their sums are periodic as well, we will only consider periodic input signals.
+
+This is what that dissection of $x(t)$ looks like:
+
+\[
+x(t) = \frac{a_0}{2} + \sum_{k=1}^\infty a_k \cdot \cos\left(\frac{2 \pi kt}{T}\right) + b_k \cdot \sin\left(\frac{2 \pi kt}{T}\right)
+\]
+
+The signal becomes the sum of possibly infinitely many sine and cosine factors, each with a weight. Since these sine and cosine functions cannot cancel each other out, there is a mathematical one-to-one correspondence between a signal's values and its representation as an array of $a_k$ and $b_k$ coefficients. As a technical constraint, we will only be able to store a finite number of these coefficients. We implemented this in Python (see figure \ref{fig:ex5_fn_fs_synthesize}).
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def fs_synthesize(
+        time_vals: np.ndarray, a_coeffs: np.ndarray, b_coeffs: np.ndarray, T: float
+    ) -> np.ndarray:
+        """
+        Given two arrays of Fourier coefficients, synthesizes the periodic signal as a
+        sequence of samples. All coefficients outside of the arrays' ranges are assumed
+        to be 0.
+        
+        :param time_vals: array of values for t 
+        :param a_coeffs: values of a (a_k == a_coeffs[k])
+        :param b_coeffs: values of b (b_k == b_coeffs[k])
+        :param T: fundamental period of signal
+        :returns: array of samples at the positions specified in time_vals
+        """
+        assert b_coeffs[0] == 0
+        last_k = len(a_coeffs) - 1
+    
+        # a_0 needs to be divided by 2
+        a_coeffs = a_coeffs.copy()
+        a_coeffs[0] /= 2
+    
+        ret = np.zeros(len(time_vals))
+        for idx, t in enumerate(time_vals):
+            sin_args = np.linspace(0, (2 * np.pi * last_k * t) / T, num=last_k + 1)
+            ret[idx] = np.dot(a_coeffs, np.cos(sin_args)) + np.dot(b_coeffs, np.sin(sin_args))
+        return ret
+    \end{lstlisting}
+    \caption{Signal synthesization function in Python}
+    \label{fig:ex5_fn_fs_synthesize}
+\end{figure}
+
+To obtain the coefficient arrays, the following formulae can be used:
+
+\begin{align*}
+a_k &= \frac{2}{T} \int_\frac{-T}{2}^\frac{T}{2} x(t) \cdot \cos\left(\frac{2 \pi kt}{T}\right) \mathrm{d}t &&\quad\text{for } k \in \mathbb{N}_0 \\
+b_k &= \frac{2}{T} \int_\frac{-T}{2}^\frac{T}{2} x(t) \cdot \sin\left(\frac{2 \pi kt}{T}\right) \mathrm{d}t &&\quad\text{for } k \in \mathbb{N}
+\end{align*}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_sawtooth.png}
+    \caption{Original sawtooth signal (blue) and signal after Fourier roundtrip (orange)}
+    \label{fig:ex5_sawtooth}
+\end{figure}
+
+Cutting off our coefficient arrays introduces inaccuracies. We can see this if we plot an example function, such as the periodic sawtooth function given by $g(t) = ((t + 1) \bmod 2) - 1$, and its synthesization $\hat{g}$ through a Fourier series of length 20 that describes that sawtooth function (see figure \ref{fig:ex5_sawtooth}). Since we used Matplotlib to create the graph using a sample of function values, the blue graph includes some almost vertical lines which ideally would not be visible. The fundamental period $T$ of $g$ is 2 because 2 is the modulus. It can be seen in the graph that the reconstructed function goes to 0 at points $t = -3$ and $t = 3$. That is because the finite Fourier sum is necessarily periodic, since it is a finite sum of sine and cosine functions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_sawtooth_coeffs.png}
+    \caption{Fourier coefficients of sawtooth signal}
+    \label{fig:ex5_sawtooth_coeffs}
+\end{figure}
+
+The corresponding Fourier coefficients can be seen in figure \ref{fig:ex5_sawtooth_coeffs}. Since the sawtooth function is an odd function, all coefficients $a_k$ are 0. After all, if any of them were non-zero, that would introduce a cosine term and cosine is an even function. We can see that the earlier $b_k$ coefficients have greater absolute values than the later ones, except for $b_0$, which is always 0. What this means is that the sine waves with low frequencies play a larger role in this Fourier series than the sine waves with high frequencies.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_comparison.png}
+    \caption{Original signal (blue) and signal after Fourier roundtrip (orange) for different number of coefficients}
+    \label{fig:ex5_comparison}
+\end{figure}
+
+If we use smaller (5) or larger (100) arrays of Fourier coefficients (see figure \ref{fig:ex5_comparison}), then our synthesized wave will match the original function less or more accurately, respectively.
+
+\begin{figure}[H]
+    \twographics{ex5_rectangle.png}{ex5_rectangle_coeffs.png}
+    \caption{Original signal (blue), signal after Fourier roundtrip (orange) and Fourier coefficients}
+    \label{fig:ex5_rectangle}
+\end{figure}
+
+In figure \ref{fig:ex5_rectangle}, we try to match a rectangle function given by \[
+h(t) = \begin{cases}
+     0 & \text{if }(t + \pi) \bmod 4\pi > 2\pi \\
+     1 & \text{otherwise.}
+\end{cases}
+\] Since the function is even, the coefficients $b_k$ for the odd sine terms are all 0.
+
+\begin{figure}[H]
+    \twographics{ex5_combined.png}{ex5_combined_coeffs.png}
+    \caption{Original signal (blue), signal after Fourier roundtrip (orange) and Fourier coefficients}
+    \label{fig:ex5_combined}
+\end{figure}
+
+In figure \ref{fig:ex5_combined}, we combine a sawtooth and a rectangle function as follow:
+\[
+u(t) = \begin{cases}
+     1 - (t \bmod 2) & \text{if }t \bmod 2 < 1 \\
+     -1 & \text{otherwise}
+\end{cases}
+\]
+Since this function has both even and odd components, both coefficient arrays are non-zero.
+
+Constructing Fourier coefficients for a simple sine wave is simple. Say that we have the function $x(t) = \sin(2 \pi \cdot 5 t)$. All values $a_k$ will need to be 0 for that because we don't want a cosine term. Our fundamental period is $T = 1/f = 1/5 = 0.2$. The equation we get is
+\[
+x(t) = \sin(2 \pi \cdot 5 t) = 1 \cdot \sin\left(\frac{2 \pi kt}{T}\right)
+\]
+Now we need to figure out which coefficient that is, i.e., find $k$.
+\begin{align*}
+2 \pi \cdot 5 t &= \frac{2 \pi k t}{5} \\
+1 &= k
+\end{align*}
+The answer is that all values $b_k$ should be 0 as well, except for $b_1$, which should be 1.
+
+\newpage
+\section{Discrete Fourier transform}
+
+The Fourier series is a useful tool for analyzing the frequencies of a signal, but we want to be able to apply this tool to real-world audio signals as well. Our audio signals are not periodic, though, nor are they described by a known function equation which we can compute an integral of. For these reasons, we use a different tool instead: The discrete Fourier transform (DFT). This method does not involve an infinite sum and is thus not called a series.
+
+It makes use of the fact that sine and cosine functions can be written as the sum of two complex exponentials. To prove that, we need the formula  \[
+\exp(j 2\pi ft) = \cos(2\pi ft) + j \sin(2\pi ft).
+\] We can then follow:
+
+\begin{align*}
+\exp(j \omega t) &= \cos(\omega t) + j \sin(\omega t) \\
+\exp(j \omega t) - \exp(-j \omega t) &= (\cos(\omega t) + j \sin(\omega t)) - (\cos(-\omega t) + j \sin(-\omega t)) \\
+\end{align*}
+
+The two cosine terms cancel out since $\cos(\omega t) = \cos(-\omega t)$. Also note that $\sin(\omega t) = -\sin(-\omega t)$.
+
+\begin{align*}
+\exp(j \omega t) - \exp(-j \omega t) &= j \sin(\omega t) - j \sin(-\omega t) \\
+\exp(j \omega t) - \exp(-j \omega t) &= 2j \sin(\omega t) \\
+\frac{1}{2j} (\exp(j \omega t) - \exp(-j \omega t)) &= \sin(\omega t) \\
+-\frac{j}{2} (\exp(j \omega t) - \exp(-j \omega t)) &= \sin(\omega t)
+\end{align*}
+
+Because of this, the DFT makes a simplification compared to the Fourier series: We will use only a complex exponential instead of having two arrays for sine and cosine terms. It should be noted, though, that we need complex coefficients in order to represent a sine function.
+
+\subsection{Implementation of the DFT}
+The resulting synthesization equation is this (known as the inverse DFT):
+
+\[
+x(n) = \frac{1}{N} \sum_{k=0}^{N-1} X(k) \exp\left(\frac{j2\pi kn}{N}\right)
+\]
+
+Here, $N$ is the number of samples. The coefficients are now written $X(k)$, since they can be though of as samples of a continuous complex-valued function. Determining these spectral coefficients can be done as follows (and this equation is the tool known as DFT):
+
+\[
+X(k) = \sum_{n=0}^{N-1} x(n) \exp\left(\frac{-j2\pi kn}{N}\right)
+\]
+
+In Python, these two functions can be implemented as seen in figure \ref{fig:ex5_fn_dft}.
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def dft(sample_vals: np.ndarray) -> np.ndarray:
+        """
+        Computes the discrete Fourier transform of the sampled real signal.
+        
+        :param sample_vals: array of sample values
+        :returns: array of DFT coefficients
+        """
+        N = len(sample_vals)
+        # values n/N for all n
+        n_N_vals = np.linspace(0, 1, num=N, endpoint=False)
+    
+        coeffs = np.zeros(N, dtype=np.complex128)
+        for k in range(N):
+            coeffs[k] = np.dot(sample_vals, np.exp(-2j * np.pi * k * n_N_vals))
+    
+        return coeffs
+    
+    def idft(coeffs: np.ndarray) -> np.ndarray:
+        """
+        Computes the original real signal of the complex Fourier coefficients (inverse
+        DFT).
+        
+        :param coeffs: array of DFT coefficients
+        :returns: array of sample values
+        """
+        N = len(coeffs)
+        # values k/N for all k
+        k_N_vals = np.linspace(0, 1, num=N, endpoint=False)
+    
+        sample_vals = np.zeros(N)
+        for n in range(N):
+            sample_vals[n] = np.real(np.dot(coeffs, np.exp(2j * np.pi * n * k_N_vals)))/N
+    
+        return sample_vals
+    \end{lstlisting}
+    \caption{Discrete Fourier transform functions in Python}
+    \label{fig:ex5_fn_dft}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|r|r|}
+        \hline
+        \textbf{} & \textbf{mean absolute error} & \textbf{largest individual error} \\
+        \hline
+        \textbf{our DFT vs FFT} & $4.96 \times 10^{-12}$ & $2.09 \times 10^{-11}$ \\
+        \hline
+        \textbf{our IDFT vs IFFT} & $4.43 \times 10^{-13}$ & $1.42 \times 10^{-12}$ \\
+        \hline
+        \textbf{our IDFT vs original} & $3.59 \times 10^{-13}$ & $1.42 \times 10^{-12}$ \\
+        \hline
+    \end{tabular}
+    \caption{Error of our implementation when compared with NumPy's FFT and error of roundtrip}
+    \label{tab:ex5_dft_error}
+\end{table}
+
+To test our implementations, let us compare them with the ones provided by NumPy directly, \texttt{np.fft.fft} and \texttt{np.fft.ifft}. They use an implementation technique known as the fast Fourier transform (FFT). We use a portion of the same audio sample that we used in section \ref{quantization}, but this time, the samples are from the range $29400 \leq n < 29500$. (The range of sample values is still that of a signed 16-bit integer.) We then use the results \texttt{dft(sample\_vals)} of our DFT function to test the inverse DFT. Finally, we also want to test if the values stay approximately the same after a DFT roundtrip \texttt{idft(dft(sample\_vals))}. The results can be seen in table \ref{tab:ex5_dft_error}: The error is very small.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        $N$ & \textbf{our DFT} & \textbf{FFT} \\
+        \hline
+        \textbf{4} & 0.000086 s & 0.000024 s \\
+        \hline
+        \textbf{16} & 0.000107 s & 0.000014 s \\
+        \hline
+        \textbf{256} & 0.003539 s & 0.000041 s \\
+        \hline
+        \textbf{65\,536} & 57.751912 s & 0.000774 s \\
+        \hline
+    \end{tabular}
+    \caption{Speed of our implementation and NumPy's FFT}
+    \label{tab:ex5_dft_speed}
+\end{table}
+
+To analyze the speed of our algorithm and the FFT, we measured the runtime performance for different input lengths $N$ (see table \ref{tab:ex5_dft_speed}). The differences are very noticeable for large input lengths. This can be attributed to the respective runtime complexities of the implementations. Our DFT implementation contains a loop over all values $N$, which in turn contains vectorized operations over arrays of size $N$, for a complexity of $\Theta(N^2)$. The FFT, on the other hand, has a complexity of $\Theta(N \log(N))$.
+
+\subsection{Visualizing the DFT}
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def dftfreq(N: int, fs: int) -> np.ndarray:
+        """
+        Returns an array of frequencies for the spectral coefficients.
+        :param N: DFT length
+        :param fs: sampling rate
+        :returns: array of frequencies
+        """
+        return np.arange(N) * (fs / N)
+    \end{lstlisting}
+    \caption{Function that gives an array of frequencies in Python}
+    \label{fig:ex5_fn_dftfreq}
+\end{figure}
+
+The spectral coefficients can be plotted in a continuous-looking graph. However, because the values are complex and we want a 2-dimensional graph, we will show the absolute values of the coefficients instead of the values themselves. To obtain sensible values to show on the x-axis, we use the function shown in figure \ref{fig:ex5_fn_dftfreq}. We plot the absolute values of the spectral coefficients of a simple $5\,\mathrm{Hz}$ sine wave sampled at $f_s = 40\,\mathrm{Hz}$ in figure \ref{fig:ex5_sine_dft}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_sine_dft.png}
+    \caption{Spectral coefficients of $5\,\mathrm{Hz}$ sine wave}
+    \label{fig:ex5_sine_dft}
+\end{figure}
+
+In order to explain the peak at $35\,\mathrm{Hz}$, we want to use a different representation where the latter half of the spectrum is shown in the negative range. The NumPy function \texttt{np.fft.fftshift} achieves exactly this: It swaps the two halves of our arrays. We can use this NumPy function on both our arrays (x-axis and y-axis values). The resulting representation is shown in figure \ref{fig:ex5_sine_dftshift}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_sine_dftshift.png}
+    \caption{Spectral coefficients of $5\,\mathrm{Hz}$ sine wave}
+    \label{fig:ex5_sine_dftshift}
+\end{figure}
+
+It is now easy to explain why there are two peaks: As we proved earlier in this section, \[
+\sin(2 \pi \cdot 5 t) = -\frac{j}{2} (\exp(j 2 \pi \cdot 5 t) - \exp(-j 2 \pi \cdot 5 t)).
+\] Therefore, we expect to see a peak at $5\,\mathrm{Hz}$ and at $-5\,\mathrm{Hz}$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_sine_dft_half.png}
+    \caption{Spectral coefficients of $5\,\mathrm{Hz}$ sine wave}
+    \label{fig:ex5_sine_dft_half}
+\end{figure}
+
+Since both sine and cosine waves are deconstructed into exponentials in this fashion, with sine always resulting in imaginary coefficients and cosine always resulting in real coefficients, our values in the positive and in the negative range will always be “symmetric”, i.e., complex conjugates of one another. Therefore, we only need one half of the spectral coefficients as long as the signal is real-valued (see figure \ref{fig:ex5_sine_dft_half}).
+
+Going back to section \ref{sampling}, we can now compute such a DFT of that example function, again with a sampling rate of $40\,\mathrm{Hz}$ (figure \ref{fig:ex5_final_dft}):
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_final_dft.png}
+    \caption{Spectral coefficients of compound wave function}
+    \label{fig:ex5_final_dft}
+\end{figure}
+
+This graph matches the expectation. The term with a frequency of $1\,\mathrm{Hz}$ has a coefficient 3 times as large as the other terms.
+
+\section{Short-time Fourier transform}
+
+\begin{figure}[H]
+    \twographics{ex5_5_fns.png}{ex5_5_fn_dfts.png}
+    \caption{Top to bottom: functions $s_1$, $s_a$, $s_b$, $s_c$ and $s_2$ and their spectrograms}
+    \label{fig:ex5_5_fns}
+\end{figure}
+
+Calculating the DFT of one long signal with changing frequencies is not very useful in practice. To illustrate this, Consider these five functions (shown on the left in figure \ref{fig:ex5_5_fns}):
+
+\begin{align*}
+s_1(t) &= 3 \sin(2 \pi t) + \sin(4 \pi t) + \sin(6 \pi t) \\
+s_a(t) &= \begin{cases}
+    3 \sin(2 \pi t) &\quad \text{for }0 \leq t < 3 \\
+    0 &\quad \text{otherwise}
+\end{cases} \\
+s_b(t) &= \begin{cases}
+    \sin(2 \pi \cdot 2 t) &\quad \text{for }3 \leq t < 6 \\
+    0 &\quad \text{otherwise}
+\end{cases} \\
+s_c(t) &= \begin{cases}
+    \sin(2 \pi \cdot 3 t) &\quad \text{for }6 \leq t < 9 \\
+    0 &\quad \text{otherwise}
+\end{cases} \\
+s_2(t) &= s_a(t) + s_b(t) + s_c(t)
+\end{align*}
+
+$s_1$ is the sum of three simple wave functions. Therefore, its spectrogram simply consists of three peaks. $s_2$, however, is not so simple. It is a sequence of three simple waves. If we think of it as an audio signal, it would represent three sounds with different pitches played one after the other. \emph{Its} spectrogram is a mess: It has lots of local maxima in places where one would not actually hear a frequency. The same goes for the three constituent waves $s_a,s_b,s_c$. This is what we expected: An audio signal that changes over time gets assigned a lot of frequencies that the human ear would not perceive. Instead, the human ear hears a sequence of different sounds with simple pitches.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_s2_stft.png}
+    \caption{Spectrograms of 3-second windows of signal $s_2$}
+    \label{fig:ex5_s2_stft}
+\end{figure}
+
+This is where the idea of short-time Fourier transforms (STFTs) comes into play: we take short samples of the audio file and run our frequency analysis on those. Figure \ref{fig:ex5_s2_stft} applies that idea to $s_2$. It shows 3-second windows, each offset from the last by 1~second. That means there is an overlap of 2~seconds. The advantage of this is that we can very clearly see the individual sounds with simple frequencies in the first, fourth and last graph.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_s2_stft2.png}
+    \caption{Spectrograms of 3-second windows of signal $s_2$ (yellow is large, purple is small)}
+    \label{fig:ex5_s2_stft2}
+\end{figure}
+
+For real-world audio signals, we use STFT with a window function, which lets a segment gradually fade out towards 0 at its edges. Having an overlap is important as well, since the window function will lead to the loss of some of the signal values unless we have overlap. Let us try this concept on our example $s_2$ as well, though. We can use the function \texttt{scipy.signal.stft} from the Python package SciPy for that, in addition to a Hann window and a 2-second overlap. Figure \ref{fig:ex5_s2_stft2} shows the result, with the position in time on the x-axis and the frequency (which was previously on the x-axis) on the y-axis. The result is consistent with the graphs in figure \ref{fig:ex5_s2_stft}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex5_speech_stft.png}
+    \caption{Spectrograms of 1-second windows of audio signal with logarithmic color scale (yellow is large, purple is small)}
+    \label{fig:ex5_speech_stft}
+\end{figure}
+
+Finally, the STFT is useful for analyzing audio files. Figure \ref{fig:ex5_speech_stft} shows the STFT of a 2-second clip of a man saying “Some have accepted it” after a short break. We used a logarithmic scale for the colors, which again represent the absolute value of that spectral coefficient. The segment length is 32~milliseconds and we are using a Hann window with an overlap of 50\%.
+
+Vowels have large values (yellow) and can be identified and distinguished from one another, as well as some consonants (\textit{s} and \textit{m}). The yellow-green activity in the 4.5 to $15\,\mathrm{kHz}$ range corresponds to the \textit{s} sound.
+
+The window length of STFTs is a tradeoff: The shorter the window is, the more accurate the point in time will be. The longer the window is, the more accurate the frequency values will be. The optimal window length depends on the content of the signal. $32\,\mathrm{Hz}$ is chosen so that the frequency can still be determined for a very low voice around $70\,\mathrm{Hz}$, but individual phonemes are separated into different windows.\footnote{https://ccrma.stanford.edu/\textasciitilde{}jos/st/Spectrogram\_Speech.html}
+
+\section{LTI systems}
+In section \ref{aliasing}, we already used a low-pass filter. That filter is an instance of a linear time-invariant (LTI) system and we can describe it mathematically. LTI system equations can also be used to precisely describe other acoustic phenomenons such as the reverberation of a sound in space. 
+
+Generally speaking, a system $\mathcal{T}$ should be interpreted as a relation between an input signal $x(n)$ and an output signal $y(n)$. The system $\mathcal{T}$ can be thought of as a black-box that maps the input signal $x(n)$ to the output signal $y(n)$, meaning $y(n) = \mathcal{T}\{x(n)\}$.
+
+In the case of LTI systems, two properties need to be true. The first property of a LTI system is linearity and can be expressed as the following implication, which needs to hold:
+
+\[
+x(n) = \sum_{i=0}^M a_i x_i(n) \quad \Rightarrow \quad \mathcal{T}\{x(n)\} = \sum_{i=0}^M a_i \mathcal{T}\{x_i(n)\}
+\]
+
+That means if you apply a system $\mathcal{T}$ to a given input signal $x(n)$, the output signal $y(n)$ will be same as if you had applied a system $\mathcal{T}$ on the component signals of $x(n)$. In other words, if you can write a signal $x(n)$ as a linear combination of component signals, then applying the system $\mathcal{T}$ to each of the component signals and adding them up should yield the same output signal $y(n)$ as if the system $\mathcal{T}$ had been directly applied to the input signal $x(n)$. If the output signal $y(n)$ is not the same, then the property of linearity is violated. An example for a violation of linearity is the system \[
+\mathcal{T}\{x_1 + x_2\} = (x_1 + x_2)^2 \neq x_1^2 + x_2^2 = \mathcal{T}\{x_1\} + \mathcal{T}\{x_2\},
+\] where $x(n)$ is our input signal and $x_1(n), x_2(n)$ are the component signals of $x(n)$. The system $\mathcal{T}$ that violates linearity in this example is represented through the computation rule $\mathcal{T}\{x(n)\} = x^2(n) = y(n)$.
+
+The second property of an LTI system is time invariance and can be expressed as the following condition:
+
+\[
+\mathcal{T}\{x(n)\} = y(n) \quad \Rightarrow \quad \mathcal{T}\{x(n - d)\} = y(n - d)
+\]
+
+That means if you were to shift the input signal $x(n)$ temporally by a value $d$ and were to then apply the system $\mathcal{T}$ to the signal, it should be as if the same temporal shift by $d$ had happened to the output signal. In other words, it does not matter where the input signal is positioned on the time axis, the system $\mathcal{T}$ will have to have the same effect on the signal; otherwise, the property of time invariance is violated.
+
+An example for a non time-invariant system out of everyday life is the system that transfers radio waves. Radio wave transfer can be disrupted through electromagnetic interference. The causes could be electric devices, motors etc. Based on the time of day, there can be a varying amount of car traffic and people outside moving through the city. Meaning depending on the time of day, the radio waves can be more or less noisy. That would make said system not time invariant, but quite the opposite.
+
+\subsection{ARMA model to describe LTI systems}
+\label{subsec:ARMA model to describe LTIsystem}
+
+Usually the ARMA (autoregressive moving-average) model is used to efficiently describe LTI systems. The output signal in this model consists of a recursive part that takes previous outputs into account and a non-recursive part. The following equation represents the ARMA model:
+
+\[
+\mathcal{T}\{x(n)\} = y(n) = \sum_{k=0}^M b_k x(n - k) - \sum_{k=1}^M a_k y(n - k)
+\]
+
+With this equation, before implementing it into Python code, we can manually calculate the output $y(n)$ for a given signal $x(n)$. As an example, we have a system $\mathcal{T}$ that is represented by the coefficients $b_0 = 0.25$, $b_1 = 0.5$, $b_2 = 0.25$ and $a_1 = 0.5$ and an input signal $x(n) = \{1, 2, 0, 2, 1\}$ where $1$ represents the first sample with index $0$. Here is the manually calculated output signal $y(n)$ for the first $6$ samples: 
+
+\begin{align*}
+y(0) &= b_0 x(0) &&= \frac{1}{4} \cdot 1 &&= \frac{1}{4} \\
+y(1) &= b_0 x(1) + b_1 x(0) - a_1 y(0) &&= \frac{1}{4} \cdot 2 + \frac{1}{2} \cdot 1 - \frac{1}{2} \cdot \frac{1}{4} &&= \frac{7}{8} \\
+y(2) &= b_0 x(2) + b_1 x(1) + b_2 x(0) - a_1 y(1) &&= \frac{1}{4} \cdot 0 + \frac{1}{2} \cdot 2 + \frac{1}{4} \cdot 1 - \frac{1}{2} \cdot \frac{7}{8} &&= \frac{13}{16} \\
+y(3) &= b_0 x(3) + b_1 x(2) + b_2 x(1) - a_1 y(2) &&= \frac{1}{4} \cdot 2 + \frac{1}{2} \cdot 0 + \frac{1}{4} \cdot 2 - \frac{1}{2} \cdot \frac{13}{16} &&= \frac{19}{32} \\
+y(4) &= b_0 x(4) + b_1 x(3) + b_2 x(2) - a_1 y(3) &&= \frac{1}{4} \cdot 1 + \frac{1}{2} \cdot 2 + \frac{1}{4} \cdot 0 - \frac{1}{2} \cdot \frac{19}{32} &&= \frac{61}{64} \\
+y(5) &= b_1 x(4) + b_2 x(3) - a_1 y(4) &&= \frac{1}{2} \cdot 1 + \frac{1}{4} \cdot 2 - \frac{1}{2} \cdot \frac{61}{64} &&= \frac{67}{128} \\
+\end{align*}
+
+After furthering our understanding of the ARMA model through manual calculation, we can implement the equation in Python (see figure \ref{fig:ex6_fn_eval_diff_eq}
+).
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def eval_diff_eq(x: np.ndarray, b_coeffs: np.ndarray, a_coeffs: np.ndarray, max_out: int) -> np.ndarray:
+        """
+        Calculates the output signal of a LTI system for a given input signal x.
+        The LTI system is represented by a- and b-coefficients of the ARMA model.
+        The LTI system is initially in an idle state, meaning that it is assumed 
+        that for all input and output signals in past calculations, the value of said 
+        signals was zero. 
+        
+        :param x: numpy array with signal samples
+        :param b_coeffs: array with b coefficients 
+        :param a_coeffs: array with a coefficients 
+        :param max_out: limit dedicated to the samplecount of the output signal
+        :returns: numpy array with samples of the output signal y 
+        """
+        
+        if x.size < max_out:
+            x = np.concat((x, np.zeros(max_out - x.size)))
+        moving_avg = scipy.signal.fftconvolve(b_coeffs, x)
+
+        padding_len = a_coeffs.size
+        padded_y = np.zeros(padding_len + max_out) 
+        for n in range(max_out):
+            auto_regressive = np.dot(a_coeffs, np.flip(padded_y[n:n + padding_len]))
+            padded_y[padding_len + n] = moving_avg[n] - auto_regressive
+
+        return padded_y[padding_len:]
+    \end{lstlisting}
+    \caption{ARMA model implementation in Python}
+    \label{fig:ex6_fn_eval_diff_eq}
+\end{figure}
+
+When comparing the first 6 samples of our manually calculated output signal $y(n)$ with the output of the \texttt{eval\_diff\_eq}, it becomes clear that our manual calculations are correct. Our manual calculations and the functions output coincide.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_noisy_sine.png}
+    \caption{Noisy sine signal}
+    \label{fig:e6_noisy_sine}
+\end{figure}
+
+We created a noisy sine signal with frequency of $2 \,\mathrm{Hz}$, an amplitude of 4 and a sample rate of $200 \,\mathrm{Hz}$. Then we added a noise signal to it, that was generated with the help of the \texttt{np.random.Generator.standard\_normal} function (see figure \ref{fig:e6_noisy_sine}).
+
+The task now is to eliminate that noise by applying a suitable filter. That filter should smooth out the values over a certain range $d$. We want to set $a_k = 0$ for all $k$ and set the $b_k$ coefficients in such a way that the system returns the average of the previous $d$ samples. To achieve this, the first $d$ values of $b_k$ have to be $\frac{1}{d}$. That is how an average over $d$ samples is computed. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_smoothed_sine_25.png}
+    \caption{Comparison between noise free signal and output signal of the system with $d = 25$}
+    \label{ex6_smoothed_sine_25.png}
+\end{figure}
+
+When manipulating the value of $d$, the system gives very different outputs. With low values, the system's output signal becomes very noisy, but the curve stays closer to the position of the noise-free signal. When using high values, the output signal becomes less noisy, but also shifts further away from the noise-free signal, i.e., the output signal is pushed to the right. Very high values cause frequency and amplitude changes; the output of the system effectively becomes a wholly different signal with those values. A value of $d = 25$ strikes a satisfactory compromise between elimination of noise and similarity to the original signal in terms of amplitude and phase (see figure \ref{ex6_smoothed_sine_25.png}). 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_noise_dft.png}
+    \caption{Spectrogram of noisy sine signal (red) and output signal of the system (green) with $d = 25$}
+    \label{ex6_noise_dft.png}
+\end{figure}
+
+If we now look at the spectrogram of the noisy sine signal and the output signal of the system, it becomes evident that the frequency that is most represented in both signals is the fundamental frequency $2\,\mathrm{Hz}$ of the original sine wave (see figure \ref{ex6_noise_dft.png}). It can also be seen that the noise in higher frequencies of the output signal of the system is reduced compared to the other signal (see figure \ref{ex6_noise_dft.png}). 
+
+We want to understand how a certain LTI system that was given to us affects audio signals. It is represented by coefficients $a$ and $b$. We use \texttt{np.load} to load the $a$- and $b$-coefficients from the file and then use that system on an audio file. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_audio_comparison.png}
+    \caption{Spectrograms of the system's input (top) and output (bottom) signals with logarithmic color scale (yellow is large,
+    purple is small)}
+    \label{ex6_audio_comparison.png}
+\end{figure}
+
+After applying the system to the audio file, we do STFTs of the input and output signals. When looking at the spectrogram of the system's output (see figure \ref{ex6_audio_comparison.png}), it is evident that the provided filter is a low-pass filter, since higher frequencies are cut off.
+
+\subsection{Impulse response as a way of describing LTI systems}
+\label{subsec:Impulse response as a way of describing LTI systems}
+
+In subsection \ref{subsec:ARMA model to describe LTIsystem}, we have become acquainted with the ARMA model to describe LTI systems and represent them through $a$ and $b$ coefficients. Another way to efficiently describe LTI systems is through their impulse response. The impulse response is basically a response of the given system to an impulse, i.e., the signal that only assumes the value 1 at index 0 and leaves all the other values at 0.
+
+To make use of it, we need to know a mathematical operation known as \emph{convolution}. It is defined as follows:
+
+\[
+y(n) = x(n) \ast h(n) = \sum_{k=-\infty}^\infty x(k) \cdot h(n - k)
+\]
+
+We implemented it in Python in figure \ref{fig:ex6_fn_convolve_sequences}.
+
+\begin{figure}[H]
+    \begin{lstlisting}[language=Python]
+    def convolve_sequences(x: np.ndarray, h: np.ndarray) -> np.ndarray:
+        """
+        This function implements the convolution operation for two finite signals 
+        represented by numpy arrays. If signal x has the length N and signal h has the
+        length M, then the output signal should have length N+M-1. 
+        
+        :param x: input signal as array (length N)
+        :param h: impulse response as array (length M)
+        :returns: output signal as array (length N+M-1)
+        """
+        if h.size > x.size:
+            return convolve_sequences(h, x)
+
+        padded_x = np.concat((np.zeros(h.size - 1), x, np.zeros(h.size - 1)))
+        rev_h = np.flip(h)
+
+        ret = np.zeros(x.size + h.size - 1)
+        sum_len = h.size
+        for n in range(ret.size):
+            ret[n] = np.dot(padded_x[n:n + sum_len], rev_h)
+        return ret
+    \end{lstlisting}
+    \caption{Function that implements the convolution operation in Python}
+    \label{fig:ex6_fn_convolve_sequences}
+\end{figure}
+
+If the impulse response $h(n)$ is known for a given system, then it is possible to compute the output of a system by convolving the input signal $x(n)$ with the impulse response $h(n)$.
+
+When working with systems that only compute the output through current and previous samples, meaning a causal system, then $h(n)$ will be $0$ for all $n < 0$. Furthermore, if the system only has a moving-average part, meaning the coefficients $a_k$ are all 0, then only a finite number of non-zero samples will show up in the impulse response.
+
+Since we have a limited amount of storage, we will have to limit the length of the impulse response to a finite amount of samples $N$ in any case. Then, only a finite amount of products need to be added up. 
+
+Now we want to calculate the impulse response of the low-pass filter that is represented by the coefficients $a$ and $b$. We use an impulse as the input signal for our \texttt{eval\_diff\_eq} function and set the \texttt{max\_out} parameter to 300. Then we plot the resulting impulse response to a stem diagram (see figure \ref{fig:ex6_lpf_impulse_response}). 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_lpf_impulse_response.png}
+    \caption{Impulse response of the low-pass filter}
+    \label{fig:ex6_lpf_impulse_response}
+\end{figure}
+
+When using the function \texttt{convolve\_sequences} to convolve the input signal with the low-pass filter's impulse response, we get the same audio file as if we had used the \texttt{eval\_diff\_eq} function and the system's $a$ and $b$ coefficients, according to the ARMA model, on our input signal. An advantage of the ARMA equation is that only a couple of coefficients are necessary. Because the system is not purely a moving-average system, the impulse response is infinite, which means that a high amount of impulse response samples might be necessary in order to achieve accurate results. An advantage of the impulse response method is that it does not have to be calculated in a specific order, which means it can be parallelized. Ultimately the ARMA model and the impulse response method constitute great ways to effectively describe LTI systems.
+
+As LTI systems are able to model the transfer of sound in a room very efficiently, we are able to use this fact to give church acoustics to an audio file. In this case we want to give a Christmas song said church acoustics. We also have the audio file \texttt{church\_impulse\_response.wav},
+which begins with a loud noise that echoes until it turns quiet. Said audio file is the impulse response we will use for the church effect.
+
+To add church acoustic to the Christmas song, we need to convolve it with that impulse response. We can execute the convolution using our \texttt{convolve\_sequence} function, the \texttt{np.convolve} function from NumPy or \texttt{scipy.signal.fftconvolve} from SciPy. The result is shown in figure \ref{fig:ex6_church_comparison}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_church_comparison.png}
+    \caption{Spectrograms of Christmas song before (top) and after (bottom) convolving with the impulse response, with logarithmic color scale (yellow is large,
+    purple is small)}
+    \label{fig:ex6_church_comparison}
+\end{figure}
+
+When comparing both spectrograms, it becomes evident that the audio is blurred to the right after being convolved. The audio is slightly delayed by the system. There are larger peaks than there were previously.
+
+\section{Convolution theorem}
+
+The convolution theorem says that a convolution $x(t) \ast g(t)$ of two signals is equivalent to multiplication $X(k) \cdot G(k)$ of the spectral functions. It also says that the same relation holds the other way around, i.e., that $x(t) \cdot g(t)$ is equivalent to $X(k) \ast G(k)$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{ex6_lpf_dft.png}
+    \caption{Spectrogram of low-pass filter}
+    \label{fig:ex6_lpf_dft}
+\end{figure}
+
+Going back to our ARMA low-pass filter that we imported (TODO: backreference), if we calculate the spectrogram of that system, we can see which frequencies are multiplied by what amount. After all, convolution with the impulse response of that system is equivalent with multiplying the frequencies. We can obtain the spectrogram $H(k)$ by computing the DFT of the impulse response $h(n)$ (see figure \ref{fig:ex6_lpf_dft}).
+
+We can now compute the result of applying this system to a signal by simply multiplying the frequencies. However, in preparation of that, we need to make sure that the frequency response of the signal and that of the system have the same sampling rate. To achieve that, we interpolate the frequency response of the low-pass filter to have more values. The accuracy of the output is limited by the low amount of samples that we recorded in the impulse response.
+
+\end{document}
